@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>DDJ200.CodexBridge</AssemblyName>
+    <RootNamespace>DDJ200.CodexBridge</RootNamespace>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Product>DDJ-200 Codex Bridge</Product>
+    <Description>Ponte comunitaria DDJ-200 para Codex Micro</Description>
+    <Company>DDJ-200 Codex Bridge community project</Company>
+    <ApplicationIcon>..\..\assets\windows\ddj200-codex-bridge.ico</ApplicationIcon>
+  </PropertyGroup>
+</Project>

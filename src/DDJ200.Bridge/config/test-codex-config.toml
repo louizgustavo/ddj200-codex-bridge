@@ -1,0 +1,48 @@
+[desktop]
+codex-micro-agent-source = "recent"
+
+[desktop.codex-micro-layout]
+version = 1
+separateMicrophoneKeys = false
+voiceButtonMode = "push-to-talk"
+encoderMode = "composer-navigation"
+
+[desktop.codex-micro-layout.slots.ACT06]
+keycapId = "FAST"
+commandId = "toggleThreadPin"
+
+[desktop.codex-micro-layout.slots.ACT07]
+keycapId = "APPR"
+commandId = "approve"
+
+[desktop.codex-micro-layout.slots.ACT08]
+keycapId = "REJ"
+commandId = "reject"
+
+[desktop.codex-micro-layout.slots.ACT09]
+keycapId = "SPLIT"
+commandId = "split"
+
+[desktop.codex-micro-layout.slots.ACT10_ACT11]
+keycapId = "MIC"
+commandId = "microphone"
+
+[desktop.codex-micro-layout.slots.ACT12]
+keycapId = "CODEX"
+commandId = "codex"
+
+[desktop.codex-micro-layout.analogStick.up]
+type = "command"
+commandId = "composer.togglePlanMode"
+
+[desktop.codex-micro-layout.analogStick.right]
+type = "command"
+commandId = "navigateForward"
+
+[desktop.codex-micro-layout.analogStick.down]
+type = "command"
+commandId = "toggleSidebar"
+
+[desktop.codex-micro-layout.analogStick.left]
+type = "command"
+commandId = "navigateBack"

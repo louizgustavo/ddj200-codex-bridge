@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">DDJ-200 Codex Bridge</title>
+  <desc id="desc">Dois pratos de DJ unidos por uma ponte luminosa</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#10182d"/><stop offset="1" stop-color="#080b14"/>
+    </linearGradient>
+    <linearGradient id="bridge" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#38d9ff"/><stop offset=".5" stop-color="#f5f7ff"/><stop offset="1" stop-color="#ff4fd8"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#bg)" stroke="#2e3c67" stroke-width="8"/>
+  <circle cx="73" cy="128" r="46" fill="#0b1020" stroke="#38d9ff" stroke-width="12"/>
+  <circle cx="183" cy="128" r="46" fill="#0b1020" stroke="#ff4fd8" stroke-width="12"/>
+  <circle cx="73" cy="128" r="15" fill="#38d9ff"/><circle cx="183" cy="128" r="15" fill="#ff4fd8"/>
+  <path d="M104 108 C121 90 135 90 152 108 M104 148 C121 166 135 166 152 148" fill="none" stroke="url(#bridge)" stroke-width="11" stroke-linecap="round"/>
+  <rect x="117" y="115" width="22" height="26" rx="6" fill="#f5f7ff"/>
+</svg>

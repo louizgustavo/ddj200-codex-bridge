@@ -1,0 +1,13 @@
+artifacts/
+stage/
+publish/
+bin/
+obj/
+.dotnet/
+.gh-auth/
+.gh-publish/
+runtime/
+*.user
+*.log
+*.pdb
+settings.json

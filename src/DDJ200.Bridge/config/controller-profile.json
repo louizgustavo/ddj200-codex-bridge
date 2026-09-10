@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "buttons": [
+    { "target": "AG00", "control": "deck1.pad2", "signature": "note:8:1" },
+    { "target": "AG01", "control": "deck1.pad3", "signature": "note:8:2" },
+    { "target": "AG02", "control": "deck1.pad5", "signature": "note:8:4" },
+    { "target": "AG03", "control": "deck1.pad6", "signature": "note:8:5" },
+    { "target": "AG04", "control": "deck1.pad7", "signature": "note:8:6" },
+    { "target": "AG05", "control": "deck1.pad8", "signature": "note:8:7" },
+    { "target": "ACT06", "control": "deck2.pad1", "signature": "note:10:0" },
+    { "target": "ACT07", "control": "deck2.pad2", "signature": "note:10:1" },
+    { "target": "ACT08", "control": "deck2.pad3", "signature": "note:10:2" },
+    { "target": "ACT09", "control": "deck2.pad4", "signature": "note:10:3" },
+    { "target": "ACT10_ACT11", "control": "deck2.play", "signature": "note:2:11" },
+    { "target": "ACT12", "control": "deck2.cue", "signature": "note:2:12" }
+  ],
+  "analogs": {
+    "ENC_CC": "cc:1:33:negative", "ENC_CW": "cc:1:33:positive",
+    "encoder.click": "note:1:54", "encoder.longPress": "note:1:54",
+    "joystick.left": "cc:2:33:negative", "joystick.right": "cc:2:33:positive",
+    "joystick.up": "absolute14:2:0:negative_from_center", "joystick.down": "absolute14:2:0:positive_from_center"
+  },
+  "jog": { "leftScale": 0.4, "rightScale": 0.1 },
+  "ledPatterns": {
+    "selected": { "mode": "blink", "durations": [2000, 100] },
+    "working": { "mode": "blink", "durations": [1000, 500] },
+    "unread": { "mode": "solidOn", "durations": [] },
+    "idle": { "mode": "solidOff", "durations": [] },
+    "unassigned": { "mode": "solidOff", "durations": [] },
+    "attention": { "mode": "blink", "durations": [250, 250] },
+    "error": { "mode": "blink", "durations": [250, 250, 250, 250, 250, 1000] },
+    "commandConfigured": { "mode": "solidOn", "durations": [] },
+    "commandHold": { "mode": "blink", "durations": [1000, 1000] },
+    "commandReleased": { "mode": "solidOn", "durations": [] }
+  }
+}
