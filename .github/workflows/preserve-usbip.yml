@@ -1,0 +1,59 @@
+name: Preserve USBip dependency
+on:
+  push:
+    paths:
+      - '.github/workflows/preserve-usbip.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  preserve:
+    runs-on: windows-latest
+    steps:
+      - name: Download and verify original signed distribution
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory bundle | Out-Null
+          $url = 'https://github.com/vadimgrn/usbip-win2/releases/download/v.0.9.8.0/USBip-0.9.8.0-x64.exe'
+          $file = 'bundle/USBip-0.9.8.0-x64.exe'
+          Invoke-WebRequest $url -OutFile $file
+          $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne '81f426741f7ee2ed991febe24a22daca8400b6ae2f171054e3fb404897e15d39') { throw 'Unexpected installer hash' }
+          $signature = Get-AuthenticodeSignature $file
+          if ($signature.Status -ne 'Valid') { throw 'Installer signature is not valid' }
+          if ($signature.SignerCertificate.Thumbprint -ne '9AC56B6C76141395D74FFF6652818376E80B9C95') { throw 'Unexpected signer certificate' }
+          Invoke-WebRequest 'https://raw.githubusercontent.com/vadimgrn/usbip-win2/v.0.9.8.0/LICENSE.txt' -OutFile 'bundle/USBip-LICENSE.txt'
+          @{
+            version = '0.9.8.0'; architecture = 'x64'; source = $url
+            sha256 = $hash; bytes = (Get-Item $file).Length
+            authenticode = $signature.Status.ToString()
+            signer = $signature.SignerCertificate.Subject
+            signerThumbprint = $signature.SignerCertificate.Thumbprint
+            verifiedAtUtc = [DateTime]::UtcNow.ToString('o')
+            license = 'BSD-2-Clause; see USBip-LICENSE.txt'
+            driverSignature = 'Upstream declares WHLK/attestation signing; installer signature verified here, driver loading not tested.'
+          } | ConvertTo-Json | Set-Content 'bundle/USBip-provenance.json' -Encoding utf8
+          "$hash  USBip-0.9.8.0-x64.exe" | Set-Content 'bundle/SHA256SUMS.txt' -Encoding ascii
+      - name: Publish preserved files without replacing existing assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = 'dependency-usbip-0.9.8.0'
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --target "${{ github.sha }}" --title "USBip 0.9.8.0 x64 — recovery backup" --notes "Unmodified official vadimgrn/usbip-win2 installer, preserved with BSD-2-Clause license and SHA-256/signature provenance. Separate dependency backup; installation is manual and separate from DDJ-200 Codex Bridge. See docs/usbip-recovery.md. This is not a new bridge release." --latest=false --draft
+            if ($LASTEXITCODE -ne 0) { throw 'Release creation failed' }
+          }
+          gh release upload $tag bundle/USBip-0.9.8.0-x64.exe bundle/USBip-LICENSE.txt bundle/USBip-provenance.json bundle/SHA256SUMS.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Upload failed; existing assets are never overwritten' }
+          gh release edit $tag --draft=false --latest=false
+          if ($LASTEXITCODE -ne 0) { throw 'Publication failed' }
+          New-Item -ItemType Directory verification | Out-Null
+          gh release download $tag --pattern USBip-0.9.8.0-x64.exe --dir verification
+          if ($LASTEXITCODE -ne 0) { throw 'Mirror download failed' }
+          $hash = (Get-FileHash verification/USBip-0.9.8.0-x64.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne '81f426741f7ee2ed991febe24a22daca8400b6ae2f171054e3fb404897e15d39') { throw 'Mirror hash mismatch' }
