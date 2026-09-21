@@ -39,6 +39,8 @@ A ponte escuta somente em `127.0.0.1:3240`, publica o bus local `1-1` e não usa
 
 O instalador da ponte **não instala nem reinstala driver**. Driver em modo kernel pode interromper dispositivos USB e exige confiança explícita; obtenha o USBip apenas na publicação oficial, confira o publisher/assinatura e siga a documentação do projeto. A ponte não desativa antivírus, integridade de código ou assinatura de teste.
 
+Para recuperação após formatação, há uma [cópia preservada do instalador oficial USBip, com licença, SHA-256 e assinatura documentados](docs/usbip-recovery.md). Ela permanece separada do instalador da ponte.
+
 ## Instalação
 
 1. Baixe `DDJ200-Codex-Bridge-1.0.0-Setup.exe` na release e confira o SHA-256 publicado.
