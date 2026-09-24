@@ -12,13 +12,14 @@
     { "target": "ACT08", "control": "deck2.pad3", "signature": "note:10:2" },
     { "target": "ACT09", "control": "deck2.pad4", "signature": "note:10:3" },
     { "target": "ACT10_ACT11", "control": "deck2.play", "signature": "note:2:11" },
-    { "target": "ACT12", "control": "deck2.cue", "signature": "note:2:12" }
+    { "target": "ACT12", "control": "deck2.cue", "signature": "note:2:12" },
+    { "target": "joystick.down", "control": "deck1.play", "signature": "note:1:11" },
+    { "target": "joystick.up", "control": "deck1.cue", "signature": "note:1:12" }
   ],
   "analogs": {
     "ENC_CC": "cc:1:33:negative", "ENC_CW": "cc:1:33:positive",
     "encoder.click": "note:1:54", "encoder.longPress": "note:1:54",
-    "joystick.left": "cc:2:33:negative", "joystick.right": "cc:2:33:positive",
-    "joystick.up": "absolute14:2:0:negative_from_center", "joystick.down": "absolute14:2:0:positive_from_center"
+    "joystick.left": "cc:2:33:negative", "joystick.right": "cc:2:33:positive"
   },
   "jog": { "leftScale": 0.4, "rightScale": 0.1 },
   "ledPatterns": {
@@ -30,7 +31,7 @@
     "attention": { "mode": "blink", "durations": [250, 250] },
     "error": { "mode": "blink", "durations": [250, 250, 250, 250, 250, 1000] },
     "commandConfigured": { "mode": "solidOn", "durations": [] },
-    "commandHold": { "mode": "blink", "durations": [1000, 1000] },
+    "commandHold": { "mode": "blink", "durations": [500, 500] },
     "commandReleased": { "mode": "solidOn", "durations": [] }
   }
 }

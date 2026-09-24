@@ -9,9 +9,9 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AssemblyName>ddj200</AssemblyName>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
     <Product>DDJ-200 Codex Bridge</Product>
     <Description>Community DDJ-200 bridge for Codex Micro</Description>
     <Company>DDJ-200 Codex Bridge community project</Company>
@@ -28,6 +28,8 @@
     <Compile Include="MidiLearn.cs" />
     <Compile Include="MicroMidi.cs" />
     <Compile Include="MicroProtocol.cs" />
+    <Compile Include="MicroSetup.cs" />
+    <Compile Include="MicroSetupTests.cs" />
     <Compile Include="MicroUsbIp.cs" />
     <Compile Include="Surface12.cs" />
     <Compile Include="AnalogSurface.cs" />
@@ -40,4 +42,6 @@
     <Compile Include="MicroTests.cs" />
     <None Include="config\controller-profile.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup><Compile Include="..\Shared\ProfileMigration.cs" Link="ProfileMigration.cs" /></ItemGroup>
+  <ItemGroup><PackageReference Include="Tomlyn" Version="0.19.0" /></ItemGroup>
 </Project>

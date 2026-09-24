@@ -17,15 +17,18 @@ public static class AnalogSurfaceMap
     {
         ["ENC_CC"]="cc:1:33:negative",["ENC_CW"]="cc:1:33:positive",
         ["encoder.click"]="note:1:54",["encoder.longPress"]="note:1:54",
-        ["joystick.left"]="cc:2:33:negative",["joystick.right"]="cc:2:33:positive",
-        ["joystick.up"]="absolute14:2:0:negative_from_center",["joystick.down"]="absolute14:2:0:positive_from_center"
+        ["joystick.left"]="cc:2:33:negative",["joystick.right"]="cc:2:33:positive"
     };
     public static void Validate(bool allowNativeRemapping=false)
     {
         var found=ProductProfile.Load().Analogs;
         if(found.Count!=Expected.Count||Expected.Any(p=>!found.TryGetValue(p.Key,out var value)||p.Value!=value))throw new InvalidDataException("Analog contract differs from reviewed physical captures");
         if(Surface12Map.Load().Any(x=>Expected.Values.Contains(x.Signature)))throw new InvalidDataException("Analog/button physical conflict");
-        var layout=JsonSerializer.SerializeToElement(MicroBinding.ParseLayoutToml(File.ReadAllText(MicroBinding.StatePath)));
+        ValidateLayout(File.ReadAllText(MicroBinding.StatePath), allowNativeRemapping);
+    }
+    public static void ValidateLayout(string text, bool allowNativeRemapping=false)
+    {
+        var layout=JsonSerializer.SerializeToElement(MicroBinding.ParseLayoutToml(text));
         if(allowNativeRemapping)
         {
             if(layout.GetProperty("encoderMode").ValueKind!=JsonValueKind.String)throw new InvalidDataException("Unsupported native encoder mode structure");
@@ -87,11 +90,11 @@ public sealed class AnalogSurfaceLogic
         return true;
     }
     private readonly HashSet<int>[] touch={new(),new()};
-    private readonly Decoder decoder=new();
+    private readonly HashSet<string> directionButtons = new();
     private bool stopped,encoderHeld;
     private long encoderAt=-1000,rightAt=-1000;
-    private int rightDirection,tempoDirection,rightBurstDirection;
-    public bool TempoCentered{get;private set;}
+    private int rightDirection,verticalDirection,rightBurstDirection;
+
     public bool IsTouched(int deckIndex)=>touch[deckIndex].Count>0;
     private static AnalogIntent Neutral()=>new("joystick.neutral","v.oai.rad",Angle:0,Distance:0);
     private static AnalogIntent Direction(string direction)=>new("joystick."+direction,"v.oai.rad",Angle:direction switch{"up"=>.75,"down"=>.25,"left"=>.5,_=>0},Distance:1);
@@ -130,7 +133,7 @@ public sealed class AnalogSurfaceLogic
             }
             else
             {
-                if(tempoDirection!=0){ClearMotion(1);return new[]{new AnalogIntent("joystick.horizontal","discard",Reason:"other_axis_active")};}
+                if(verticalDirection!=0){ClearMotion(1);return new[]{new AnalogIntent("joystick.horizontal","discard",Reason:"other_axis_active")};}
                 if(now-motionAt[1]>=180||rightBurstDirection!=direction)rightBurstDirection=0;
                 if(rightDirection!=0&&rightDirection!=direction){rightDirection=0;result.Add(Neutral());}
                 if(sensitivity.RightScale<1&&rightBurstDirection==direction){motionAt[1]=now;return result;}
@@ -143,24 +146,22 @@ public sealed class AnalogSurfaceLogic
             }
             return result;
         }
-        if(type!=0xB0||channel!=1||message.Data1 is not (0 or 32))return result;
-        var decoded=decoder.Decode(message,now);if(decoded==null)return result;
-        int delta=decoded.Value-8192;
-        if(!TempoCentered)
-        {
-            if(Math.Abs(delta)<=128)TempoCentered=true;
-            else result.Add(new("joystick.vertical","discard",Reason:"tempo_requires_center"));
-            return result;
-        }
-        if(Math.Abs(delta)<=256)
-        {if(tempoDirection!=0){tempoDirection=0;result.Add(Neutral());}return result;}
-        if(Math.Abs(delta)<512)return result;
-        int sign=Math.Sign(delta);
-        if(tempoDirection==sign)return result;
-        if(tempoDirection!=0)
-        {tempoDirection=0;TempoCentered=false;result.Add(Neutral());return result;}
-        if(rightDirection!=0)return new[]{new AnalogIntent("joystick.vertical","discard",Reason:"other_axis_active")};
-        tempoDirection=sign;result.Add(Direction(sign>0?"down":"up"));return result;
+        return result; // Tempo faders no longer control the vertical axis.
+    }
+    public IReadOnlyList<AnalogIntent> DirectionButton(string target, int act)
+    {
+        var result = new List<AnalogIntent>();
+        if (stopped || !Surface12Map.DirectionTargets.Contains(target) || act is not (0 or 1)) return result;
+        if (act == 1 ? !directionButtons.Add(target) : !directionButtons.Remove(target)) return result;
+        // Opposite buttons cancel while both are held; releasing one restores the other.
+        int next = directionButtons.Count == 1 ? (directionButtons.Contains("joystick.down") ? 1 : -1) : 0;
+        if (next == verticalDirection) return result;
+        if (rightDirection != 0 || verticalDirection != 0) result.Add(Neutral());
+        rightDirection = rightBurstDirection = 0;
+        ClearMotion(1);
+        verticalDirection = next;
+        if (next != 0) result.Add(Direction(next > 0 ? "down" : "up"));
+        return result;
     }
     public IReadOnlyList<AnalogIntent> Tick(long now)
     {
@@ -174,8 +175,8 @@ public sealed class AnalogSurfaceLogic
     {
         var result=new List<AnalogIntent>();
         if(encoderHeld)result.Add(new("encoder.press","v.oai.hid","ENC_PRESS",0));
-        if(rightDirection!=0||tempoDirection!=0)result.Add(Neutral());
-        stopped=true;encoderHeld=false;rightDirection=tempoDirection=rightBurstDirection=0;
-        ClearMotion(0);ClearMotion(1);foreach(var item in touch)item.Clear();return result;
+        if(rightDirection!=0||verticalDirection!=0)result.Add(Neutral());
+        stopped=true;encoderHeld=false;rightDirection=verticalDirection=rightBurstDirection=0;
+        directionButtons.Clear();ClearMotion(0);ClearMotion(1);foreach(var item in touch)item.Clear();return result;
     }
 }

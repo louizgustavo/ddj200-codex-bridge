@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0 — pré-release para validação
+
+- Instalador completo com USBip-win2 0.9.8.0 x64 oficial incorporado, elevação apenas da dependência e retomada do assistente no login após reinício.
+- Descoberta do Micro sem layout prévio nem acesso MIDI; confirmação exige retorno real dos seis indicadores. Preparação aditiva de configuração, backup e preservação de recentes/fixados e remapeamentos.
+- Assistente verifica instalação do Codex/ChatGPT, abre o aplicativo e oferece nova tentativa/cancelamento. Configuração incompatível é preservada e informada.
+- Inclui as correções de PLAY/CUE esquerdo, luzes, jog esquerdo e alternância entre tarefas recentes/fixadas já validadas pelo usuário.
+- Testes de configuração inicial, idempotência, backups e recusa segura. Instalação completa em Windows limpo ainda requer validação física antes da publicação.
+
 ## 1.0.0
 
 - Primeira versão pública dos caminhos USB e Bluetooth nativo.

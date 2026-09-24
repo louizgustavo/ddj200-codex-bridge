@@ -8,23 +8,25 @@ namespace Ddj200;
 
 public record Surface12Binding(string Target, string Control, string Signature, string Provenance, string? CaptureId)
 {
+    public bool IsDirection => Surface12Map.DirectionTargets.Contains(Target);
     public bool IsTask => Surface12Map.TaskTargets.Contains(Target);
     public string WireKey => Target == "ACT10_ACT11" ? "ACT10" : Target;
     public MidiMessage Led(bool on) => LedPolicy.Targets[Control] with { Data2 = (byte)(on ? 127 : 0) };
 }
 public static class Surface12Map
 {
+    public static readonly string[] DirectionTargets = { "joystick.up", "joystick.down" };
     public static readonly string[] TaskTargets = { "AG00", "AG01", "AG02", "AG03", "AG04", "AG05" };
     public static readonly Dictionary<string, string> Commands = new() { ["ACT06"]="FAST", ["ACT07"]="APPR", ["ACT08"]="REJ", ["ACT09"]="SPLIT", ["ACT10_ACT11"]="MIC", ["ACT12"]="CODEX" };
     public static List<Surface12Binding> Load()
     {
         var result = ProductProfile.Load().Buttons.Select(entry => new Surface12Binding(entry.Target, entry.Control, entry.Signature, "product_preset", null)).ToList();
-        Validate(result); return result.OrderBy(x => Array.IndexOf(TaskTargets.Concat(Commands.Keys).ToArray(), x.Target)).ToList();
+        Validate(result); return result.OrderBy(x => Array.IndexOf(TaskTargets.Concat(Commands.Keys).Concat(DirectionTargets).ToArray(), x.Target)).ToList();
     }
     public static void Validate(IReadOnlyList<Surface12Binding> map)
     {
-        if (map.Count != 12 || map.Select(x => x.Target).Distinct().Count() != 12 || map.Select(x => x.Signature).Distinct().Count() != 12 ||
-            !map.Select(x => x.Target).ToHashSet().SetEquals(TaskTargets.Concat(Commands.Keys))) throw new InvalidDataException("Exactly 12 unique requested targets/physical controls required");
+        if (map.Count != 14 || map.Select(x => x.Target).Distinct().Count() != 14 || map.Select(x => x.Signature).Distinct().Count() != 14 ||
+            !map.Select(x => x.Target).ToHashSet().SetEquals(TaskTargets.Concat(Commands.Keys).Concat(DirectionTargets))) throw new InvalidDataException("Exactly 14 unique requested targets/physical controls required");
         foreach (var item in map)
         {
             if (!LedPolicy.Targets.TryGetValue(item.Control, out var note) || !LedPolicy.IsAllowed(note) ||
@@ -51,13 +53,13 @@ public static class Surface12Map
         }
         if(nativeRemapping)
         {
-            ValidateRecentTaskSource(configText);
+            ReadTaskSource(configText);
             // The bridge emits physical Micro key identities; Codex owns their
             // configured actions. Function changes do not alter the wire contract.
             return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new{
                 version=layout.GetProperty("version").GetInt32(),
                 separateMicrophoneKeys=layout.GetProperty("separateMicrophoneKeys").GetBoolean(),
-                voiceButtonMode=layout.GetProperty("voiceButtonMode").GetString(),agentSource="recent"
+                voiceButtonMode=layout.GetProperty("voiceButtonMode").GetString()
             }))));
         }
         return MicroConfigurationFingerprint(configText);
@@ -76,23 +78,25 @@ public static class Surface12Map
         }
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n',relevant))));
     }
-    public static void ValidateRecentTaskSource(string configText)
+    public static string ReadTaskSource(string configText)
     {
-        string section="";int matches=0;
+        string section="";string? source=null;int matches=0;
         foreach(string raw in configText.Split('\n'))
         {
             string line=raw.Trim();if(line.StartsWith('[')){section=line;continue;}
             if(section!="[desktop]"||!line.StartsWith("codex-micro-agent-source"))continue;
             int split=line.IndexOf('=');
-            if(split<0||line[..split].Trim()!="codex-micro-agent-source"||
-                JsonSerializer.Deserialize<string>(line[(split+1)..].Trim())!="recent")throw new InvalidDataException("Continuous mode requires the approved recent-task source");
+            if(split<0||line[..split].Trim()!="codex-micro-agent-source")throw new InvalidDataException("Invalid Micro task source assignment");
+            source=JsonSerializer.Deserialize<string>(line[(split+1)..].Trim());
+            if(source is not ("recent" or "pinned"))throw new InvalidDataException("Micro task source must be recent or pinned");
             matches++;
         }
-        if(matches!=1)throw new InvalidDataException("Explicit recent-task source required");
+        if(matches!=1)throw new InvalidDataException("Exactly one explicit Micro task source required");
+        return source!;
     }
-    public static void ValidateTaskReview(JsonElement review,DateTimeOffset now)
+    public static void ValidateTaskReview(JsonElement review,DateTimeOffset now,string taskSource="recent")
     {
-        if(review.GetProperty("source").GetString()!="live_Creator_Micro_accessibility_and_visual_order" || review.GetProperty("agentSource").GetString()!="recent") throw new InvalidDataException("Task-only recent source must be reviewed live");
+        if(taskSource is not ("recent" or "pinned") || review.GetProperty("source").GetString()!="live_Creator_Micro_accessibility_and_visual_order" || review.GetProperty("agentSource").GetString()!=taskSource) throw new InvalidDataException("Task review must match the selected Micro source");
         var age=now-review.GetProperty("reviewedAt").GetDateTimeOffset();
         if(age<TimeSpan.Zero||age>TimeSpan.FromMinutes(10))throw new InvalidDataException("Task identity review expired; refresh current preview");
         var entries=review.GetProperty("slots").EnumerateArray().ToArray();
@@ -116,6 +120,10 @@ public sealed class Surface12Logic(IReadOnlyList<Surface12Binding> bindings)
     private readonly IReadOnlyDictionary<string,ProductLedPattern> ledPatterns = ProductProfile.Load().EffectiveLedPatterns;
     public bool Ready(long now, bool connected) => !stopped && connected && tasks != null && feedbackAt >= 0 && now - feedbackAt is >= 0 and <= 75000;
     public IReadOnlyList<SurfaceTaskState>? Tasks => tasks;
+    public void CancelTaskGestures()
+    {
+        foreach(string target in Surface12Map.TaskTargets){held.Remove(target);released.Remove(target);}
+    }
     public void Receive(string method, JsonElement value, long now)
     {
         if (stopped) return;
@@ -206,21 +214,19 @@ public static class Surface12Run
         if(observeAnalogs)AnalogSurfaceMap.Validate(allowNativeRemapping:!seconds.HasValue);
         var jogSensitivity=observeAnalogs?JogSensitivity.Read():null;
         var analog=observeAnalogs?new AnalogSurfaceLogic(jogSensitivity):null;
-        var map=Surface12Map.Load();string config=Surface12Map.ConfigurationFingerprint(nativeRemapping:!seconds.HasValue);
+        string configText=File.ReadAllText(MicroBinding.StatePath);
+        var map=Surface12Map.Load();string config=Surface12Map.ConfigurationFingerprint(configText,nativeRemapping:!seconds.HasValue);
+        string taskSource=Surface12Map.ReadTaskSource(configText);
         string mapHash=HashInputs(observeAnalogs);
         string folder=ProductProfile.RuntimeFolder;
         Directory.CreateDirectory(folder);
         if(File.Exists(folder+"/stop"))throw new InvalidOperationException("Remove explicit stop marker before arming");
         // Test windows review current identities. Continuous use follows the user's
-        // approved dynamic recent-task positions, rather than freezing old titles.
-        if(allowTaskSelection)
+        // selected native slot positions, rather than caching task identities/order.
+        if(allowTaskSelection && seconds.HasValue)
         {
-            if(!seconds.HasValue)Surface12Map.ValidateRecentTaskSource(File.ReadAllText(MicroBinding.StatePath));
-            else
-            {
-                using var review=JsonDocument.Parse(File.ReadAllText(folder+"/task-bindings-reviewed.json"));
-                Surface12Map.ValidateTaskReview(review.RootElement,DateTimeOffset.UtcNow);
-            }
+            using var review=JsonDocument.Parse(File.ReadAllText(folder+"/task-bindings-reviewed.json"));
+            Surface12Map.ValidateTaskReview(review.RootElement,DateTimeOffset.UtcNow,taskSource);
         }
         using var owner=new DeviceOwnership();
         if(transport is not ("usb" or "bluetooth"))throw new ArgumentException("Transport must be usb or bluetooth");
@@ -260,7 +266,24 @@ public static class Surface12Run
             }
         }
         var selectedPattern=ProductProfile.Load().EffectiveLedPatterns["selected"];
-        void Status(string state,string? detail=null)=>MidiLearn.Save(folder+"/status.json",new{state,detail,pid=Environment.ProcessId,time=DateTimeOffset.UtcNow,startedAt,expiresAt,mode=seconds.HasValue?"test":"continuous",transport=transport=="usb"?"USB":"Bluetooth",connectionState=state=="active"?"ready":state=="waiting_for_micro"?"connected":state,taskSelection=allowTaskSelection,commandExecution=commands.Count>0,enabledCommands=commands,analogObservation=observeAnalogs,analogExecution=executeAnalogs,jogSensitivity,leftJogIntervalMs=AnalogSurfaceLogic.LeftIntervalMs,selectedLedMode=selectedPattern.Mode,selectedLedOnMs=selectedPattern.Mode=="blink"?selectedPattern.Durations[0]:(int?)null,selectedLedOffMs=selectedPattern.Mode=="blink"?selectedPattern.Durations[1]:(int?)null,slots=logic.Tasks});
+        void Status(string state,string? detail=null)=>MidiLearn.Save(folder+"/status.json",new{state,detail,pid=Environment.ProcessId,time=DateTimeOffset.UtcNow,startedAt,expiresAt,mode=seconds.HasValue?"test":"continuous",transport=transport=="usb"?"USB":"Bluetooth",connectionState=state=="active"?"ready":state=="waiting_for_micro"?"connected":state,taskSelection=allowTaskSelection,taskSource,taskSlots=Surface12Map.TaskTargets,commandExecution=commands.Count>0,enabledCommands=commands,analogObservation=observeAnalogs,analogExecution=executeAnalogs,jogSensitivity,leftJogIntervalMs=AnalogSurfaceLogic.LeftIntervalMs,selectedLedMode=selectedPattern.Mode,selectedLedOnMs=selectedPattern.Mode=="blink"?selectedPattern.Durations[0]:(int?)null,selectedLedOffMs=selectedPattern.Mode=="blink"?selectedPattern.Durations[1]:(int?)null,slots=logic.Tasks});
+        void CheckTaskSource(string? currentConfig=null)
+        {
+            string next=Surface12Map.ReadTaskSource(currentConfig??File.ReadAllText(MicroBinding.StatePath));
+            if(next==taskSource)return;
+            string previous=taskSource;taskSource=next;
+            // A pad pressed in the previous source must not select on release in the new one.
+            logic.CancelTaskGestures();
+            Log(new{kind="task_source_changed",ms=clock.ElapsedMilliseconds,previous,taskSource});
+            Status(active?"active":"waiting_for_micro");
+        }
+        void CheckConfiguration()
+        {
+            string currentConfig=File.ReadAllText(MicroBinding.StatePath);
+            if(Surface12Map.ConfigurationFingerprint(currentConfig,nativeRemapping:!seconds.HasValue)!=config||HashInputs(observeAnalogs)!=mapHash)
+                throw new IOException("Mapping/configuration changed");
+            CheckTaskSource(currentConfig);
+        }
         async Task AnalogEvents(IEnumerable<AnalogIntent> intents,long now)
         {
             foreach(var intent in intents)
@@ -297,22 +320,24 @@ public static class Surface12Run
                 long now=clock.ElapsedMilliseconds;bool connected=server.IsImported;
                 if(imported&&!connected)throw new IOException("Micro disconnected");imported|=connected;
                 if(overflow!=0||midi.Dropped!=0||midi.InputError)throw new IOException("MIDI or feedback loss");
-                if(now-guard>=250){if(Surface12Map.ConfigurationFingerprint(nativeRemapping:!seconds.HasValue)!=config||HashInputs(observeAnalogs)!=mapHash)throw new IOException("Mapping/configuration changed");guard=now;}
+                if(now-guard>=250){CheckConfiguration();guard=now;}
                 while(queue.Reader.TryRead(out var item))
                 {
                     logic.Receive(item.Method,item.Value,item.Time);
-                    if(item.Method=="v.oai.thstatus") {Log(new{kind="real_task_feedback",ms=now,slots=logic.Tasks});if(active)Status("active");}
+                    if(item.Method=="v.oai.thstatus") {Log(new{kind="real_task_feedback",ms=now,taskSource,slots=logic.Tasks});if(active)Status("active");}
                 }
                 now=clock.ElapsedMilliseconds; // Feedback may arrive after the loop's initial clock read.
                 bool ready=logic.Ready(now,connected);
                 if(active&&!ready)throw new IOException("Micro feedback stale; disarmed");
-                if(ready&&!active){active=true;Status("active");Console.WriteLine("ACTIVE: twelve buttons and LEDs ready; enabled commands: "+(commands.Count==0?"NONE":string.Join(',',commands)));}
+                if(ready&&!active){active=true;Status("active");Console.WriteLine("ACTIVE: fourteen buttons and LEDs ready; enabled commands: "+(commands.Count==0?"NONE":string.Join(',',commands)));}
                 if(now-statusAt>=2000){Status(active?"active":"waiting_for_micro");statusAt=now;}
                 while(midi.TryRead(out var packet))
                 {
                     long age=(long)(Stopwatch.GetTimestamp()*1000.0/Stopwatch.Frequency)-packet.ReceivedMs;
                     if(age is <0 or >200)throw new IOException("Stale physical input");
                     if(analog!=null&&ready)await AnalogEvents(analog.Input(packet.Message,clock.ElapsedMilliseconds),clock.ElapsedMilliseconds);
+                    if((packet.Message.Status&0xF0) is 0x80 or 0x90 &&
+                        map.Any(b=>b.IsTask && b.Signature==$"note:{(packet.Message.Status&15)+1}:{packet.Message.Data1}"))CheckTaskSource();
                     var edge=logic.Input(packet.Message,clock.ElapsedMilliseconds,connected);if(edge==null)continue;
                     bool sent=false;
                     if(allowTaskSelection&&edge.Binding.IsTask&&edge.Act==0&&edge.HeldMs>=20)
@@ -320,9 +345,17 @@ public static class Surface12Run
                         int slot=Array.IndexOf(Surface12Map.TaskTargets,edge.Binding.Target);
                         if(logic.Tasks![slot].Status!="off")
                         {
+                            // AGxx is the native slot identity, never a cached recent/pinned task ID.
+                            // Codex resolves that slot against its selected source; thstatus IDs use
+                            // the same positions for lights and empty-slot gating.
                             sent=server.TrySendTaskKey(edge.Binding.WireKey);
                             if(!sent)throw new IOException("Task key not queued; no active HID reader");
                         }
+                    }
+                    if(edge.Binding.IsDirection && analog != null)
+                    {
+                        await AnalogEvents(analog.DirectionButton(edge.Binding.Target, edge.Act), clock.ElapsedMilliseconds);
+                        sent=executeAnalogs;
                     }
                     if(ShouldSendCommand(edge,commands))
                     {
@@ -332,7 +365,7 @@ public static class Surface12Run
                         if(!sent)throw new IOException("Command HID delivery failed or uncertain; disarmed");
                         if(edge.Act==0)emittedHeld.Remove(edge.Binding.WireKey);
                     }
-                    Log(new{kind="physical_edge",ms=clock.ElapsedMilliseconds,target=edge.Binding.Target,control=edge.Binding.Control,raw=packet.Message.Hex,wire=new{k=edge.Binding.WireKey,act=edge.Act},heldMs=edge.HeldMs,execution=edge.Binding.IsTask?(sent?"task_cycle_queued":"blocked_or_waiting_release"):(sent?"command_edge_delivered":"blocked_command"),provenance=edge.Binding.Provenance});
+                    Log(new{kind="physical_edge",ms=clock.ElapsedMilliseconds,target=edge.Binding.Target,taskSource=edge.Binding.IsTask?taskSource:null,control=edge.Binding.Control,raw=packet.Message.Hex,wire=new{k=edge.Binding.WireKey,act=edge.Act},heldMs=edge.HeldMs,execution=edge.Binding.IsTask?(sent?"task_cycle_queued":"blocked_or_waiting_release"):(sent?"command_edge_delivered":"blocked_command"),provenance=edge.Binding.Provenance});
                 }
                 if(analog!=null&&ready)await AnalogEvents(analog.Tick(clock.ElapsedMilliseconds),clock.ElapsedMilliseconds);
                 Leds(connected);await Task.Delay(10,stop.Token);

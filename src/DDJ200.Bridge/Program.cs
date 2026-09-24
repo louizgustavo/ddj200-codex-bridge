@@ -22,6 +22,19 @@ static async Task<int> MainAsync(string[] args)
         if(command=="analog-surface-self-test")return AnalogSurfaceTests.Run();
         if(command=="bounded-log-self-test")return BoundedEventLogTests.Run();
         if(command=="micro-self-test")return await MicroTests.Run();
+        if(command=="setup-self-test")return MicroSetupTests.Run();
+        if(command=="setup-config")
+        {
+            if(args.Contains("--dry-run"))
+            {
+                string original=File.Exists(MicroBinding.StatePath)?File.ReadAllText(MicroBinding.StatePath):"";
+                Console.WriteLine(MicroSetup.PrepareText(original)==original?"CONFIG_PRESERVED":"CONFIG_WOULD_BE_PREPARED");return 0;
+            }
+            bool changed=MicroSetup.PrepareFile(MicroBinding.StatePath);
+            Console.WriteLine(changed?"CONFIG_PREPARED":"CONFIG_PRESERVED");return 0;
+        }
+        if(command=="check-config") { MicroSetup.Validate(File.ReadAllText(MicroBinding.StatePath)); return 0; }
+        if(command=="discover-micro")return await MicroSetup.Discover(int.TryParse(Option("--timeout-seconds"),out int discoverySeconds)?discoverySeconds:120);
         if(command=="profile-check")
         {
             var buttons=Surface12Map.Load();
@@ -52,12 +65,12 @@ static async Task<int> MainAsync(string[] args)
         }
         if(command=="help")
         {
-            Console.WriteLine("DDJ-200 Codex Bridge 1.0.0\nsurface12-run --continuous --arm --allow-task-selection --enable-commands ACT06,ACT07,ACT08,ACT09,ACT10_ACT11,ACT12 --observe-analogs --execute-analogs\nprofile-check | ports | identify-control --timeout-seconds 20 | self-test");
+            Console.WriteLine("DDJ-200 Codex Bridge 1.1.0\nsurface12-run --continuous --arm --allow-task-selection --enable-commands ACT06,ACT07,ACT08,ACT09,ACT10_ACT11,ACT12 --observe-analogs --execute-analogs\nprofile-check | ports | identify-control --timeout-seconds 20 | self-test");
             return 0;
         }
         throw new ArgumentException("Unknown command; use help");
     }
-    catch(Exception e) when(e is ArgumentException or FormatException or OverflowException or InvalidOperationException or IOException or InvalidDataException or JsonException or PlatformNotSupportedException or TimeoutException or OperationCanceledException)
+    catch(Exception e) when(e is ArgumentException or FormatException or OverflowException or InvalidOperationException or IOException or InvalidDataException or JsonException or PlatformNotSupportedException or TimeoutException or OperationCanceledException or UnauthorizedAccessException)
     {
         Console.Error.WriteLine($"{e.GetType().Name}: {e.Message}");
         return 1;
