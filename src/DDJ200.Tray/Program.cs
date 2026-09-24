@@ -28,7 +28,9 @@ internal static class Program
         if (!created) return;
         ApplicationConfiguration.Initialize();
         bool bluetoothSetup=Environment.GetCommandLineArgs().Skip(1).Any(a=>a.Equals("--bluetooth-setup",StringComparison.OrdinalIgnoreCase));
-        Application.Run(new BridgeTrayContext(bluetoothSetup));
+        bool setup=Environment.GetCommandLineArgs().Skip(1).Any(a=>a.Equals("--setup",StringComparison.OrdinalIgnoreCase));
+        setup|=File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"DDJ200CodexBridge","setup-pending"));
+        Application.Run(new BridgeTrayContext(bluetoothSetup,setup));
     }
 
     private static void SignalExisting(string name)
@@ -62,13 +64,15 @@ internal sealed class BridgeTrayContext : ApplicationContext
     private bool busy;
     private bool closing;
     private bool openBluetoothOnFirstTick;
+    private bool openSetupOnFirstTick;
     private string selectedTransport="usb";
     private ulong? selectedBleAddress;
     private string? selectedBleName;
 
-    public BridgeTrayContext(bool bluetoothSetup=false)
+    public BridgeTrayContext(bool bluetoothSetup=false,bool setup=false)
     {
         openBluetoothOnFirstTick=bluetoothSetup;
+        openSetupOnFirstTick=setup;
         Directory.CreateDirectory(dataRoot);
         Directory.CreateDirectory(Path.Combine(dataRoot, "logs"));
         EnsureUserProfile();
@@ -84,6 +88,7 @@ internal sealed class BridgeTrayContext : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(startupItem);
         menu.Items.Add("Configurar controles e luzes...", null, async (_, _) => await ConfigureAsync());
+        menu.Items.Add("Preparar / verificar Codex Micro...", null, async (_, _) => await SetupAsync());
         menu.Items.Add("Selecionar configuração do Codex...", null, async (_, _) => await SelectCodexConfigAsync());
         menu.Items.Add("Abrir pasta de diagnóstico", null, (_, _) => OpenFolder(dataRoot));
         menu.Items.Add("Documentação", null, (_, _) => OpenFile(Path.Combine(installRoot, "README.md")));
@@ -104,6 +109,7 @@ internal sealed class BridgeTrayContext : ApplicationContext
         startupItem.Click += (_, _) => SetStartup(startupItem.Checked);
         timer.Tick += async (_, _) =>
         {
+            if(openSetupOnFirstTick){openSetupOnFirstTick=false;await SetupAsync();return;}
             if(openBluetoothOnFirstTick){openBluetoothOnFirstTick=false;await SelectBluetoothAsync();return;}
             if (shutdownSignal.WaitOne(0)) { await ExitAsync(); return; }
             if (stopSignal.WaitOne(0)) await StopAsync(showResult: false);
@@ -111,7 +117,7 @@ internal sealed class BridgeTrayContext : ApplicationContext
         };
         timer.Start();
         RefreshStatus();
-        if(!bluetoothSetup&&selectedTransport=="usb")_ = StartAsync(showResult: false);
+        if(!setup&&!bluetoothSetup&&selectedTransport=="usb")_ = StartAsync(showResult: false);
     }
 
     private string RuntimeRoot => Path.Combine(dataRoot, "runtime");
@@ -122,7 +128,26 @@ internal sealed class BridgeTrayContext : ApplicationContext
     private string UserProfilePath => Path.Combine(dataRoot, "controller-profile.json");
     private string DefaultProfilePath => Path.Combine(installRoot, "config", "controller-profile.json");
     private string BridgeExe => Path.Combine(installRoot, "bridge", "ddj200.exe");
-    private static string UsbIpExe => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "USBip", "usbip.exe");
+    private static string UsbIpExe => UsbIpClient.Executable;
+
+    private async Task SetupAsync()
+    {
+        if(busy||closing)return;
+        if(ReadLiveStatus().Live)
+        {
+            MessageBox.Show("A ponte está em execução. Para refazer a preparação, use Parar ponte primeiro.",ProductName,MessageBoxButtons.OK,MessageBoxIcon.Information);return;
+        }
+        busy=true;
+        bool confirmed;
+        try{using var setup=new SetupForm(BridgeExe,ResolveCodexConfig(),dataRoot);setup.ShowDialog();confirmed=setup.Confirmed;}
+        finally{busy=false;RefreshStatus();}
+        if(confirmed)
+        {
+            File.Delete(Path.Combine(dataRoot,"setup-pending"));
+            if(selectedTransport=="bluetooth"&&!selectedBleAddress.HasValue)await SelectBluetoothAsync();
+            else await StartAsync(showResult:true);
+        }
+    }
 
     private async Task ToggleAsync()
     {
@@ -140,7 +165,7 @@ internal sealed class BridgeTrayContext : ApplicationContext
         {
             CloseLogs();
             if (!File.Exists(BridgeExe)) throw new FileNotFoundException("Executável da ponte não encontrado.", BridgeExe);
-            if (!File.Exists(UsbIpExe)) throw new FileNotFoundException("USBip não está instalado. Use somente o instalador oficial indicado na documentação.", UsbIpExe);
+            if (!File.Exists(UsbIpExe)) throw new FileNotFoundException("USBip não está instalado. Execute o instalador completo da ponte.", UsbIpExe);
             string codexConfig = ResolveCodexConfig();
             if (!File.Exists(codexConfig)) throw new FileNotFoundException("Selecione o arquivo config.toml usado pelo Codex.", codexConfig);
             Directory.CreateDirectory(Path.GetDirectoryName(StatusPath)!);
@@ -205,7 +230,17 @@ internal sealed class BridgeTrayContext : ApplicationContext
 
     private void EnsureUserProfile()
     {
-        if (File.Exists(UserProfilePath)) return;
+        if (File.Exists(UserProfilePath))
+        {
+            var profile = JsonNode.Parse(File.ReadAllText(UserProfilePath))!.AsObject();
+            if (Ddj200.ProfileMigration.Upgrade(profile))
+            {
+                string candidate = UserProfilePath + ".migration-new";
+                File.WriteAllText(candidate, profile.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+                File.Replace(candidate, UserProfilePath, UserProfilePath + ".before-navigation", true);
+            }
+            return;
+        }
         if (!File.Exists(DefaultProfilePath)) throw new FileNotFoundException("Perfil padrão não encontrado.",DefaultProfilePath);
         File.Copy(DefaultProfilePath,UserProfilePath,false);
     }
@@ -376,14 +411,9 @@ internal sealed class BridgeTrayContext : ApplicationContext
 
     private static async Task<string> RunUsbIpAsync(bool allowFailure, params string[] args)
     {
-        var info = new ProcessStartInfo(UsbIpExe) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (string arg in args) info.ArgumentList.Add(arg);
-        using var process = Process.Start(info) ?? throw new InvalidOperationException("Não foi possível executar USBip.");
-        string output = await process.StandardOutput.ReadToEndAsync();
-        string error = await process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
-        if (!allowFailure && process.ExitCode != 0) throw new InvalidOperationException($"USBip falhou ({process.ExitCode}): {error}");
-        return output + error;
+        var result=await UsbIpClient.Run(args);
+        if (result.Code != 0) throw new InvalidOperationException($"USBip falhou ({result.Code}): {result.Text}");
+        return result.Text;
     }
 
     private (bool Live, int? Pid, string? State, string? Detail) ReadLiveStatus()

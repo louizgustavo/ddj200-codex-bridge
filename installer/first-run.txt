@@ -1,0 +1,11 @@
+DDJ-200 Codex Bridge — instalação completa
+
+Este pacote inclui a ponte e o instalador oficial USBip-win2 0.9.8.0 x64, sem modificações. O USBip será instalado somente se estiver ausente. Uma instalação existente será verificada e preservada.
+
+A instalação do driver requer administrador, pode interromper brevemente dispositivos USB e requer reiniciar o Windows. Salve seu trabalho e termine transferências USB antes de continuar. O assistente da ponte será retomado no próximo login do usuário que iniciou esta instalação.
+
+O aplicativo Codex precisa estar instalado e aberto para confirmar o Micro. O pacote não instala o Codex nem faz login em sua conta. Na primeira configuração, o assistente prepara os campos Micro ausentes, preserva recentes/fixados e ações existentes, e verifica o retorno real do dispositivo virtual. Se o Codex não recarregar a configuração, o assistente solicitará que você feche e reabra o aplicativo.
+
+Depois, conecte a DDJ-200 por USB ou escolha Bluetooth no menu da bandeja. A ponte somente indica Ativa depois de receber o retorno do Micro. A descoberta do Micro, sozinha, não comprova a conexão física da DDJ-200.
+
+USBip permanece instalado separadamente no Windows e não será removido ao desinstalar a ponte. Suas licenças e avisos são preservados. A ponte é um projeto comunitário, sem afiliação ou suporte oficial dos fabricantes.

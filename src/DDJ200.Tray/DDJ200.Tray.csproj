@@ -8,12 +8,13 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AssemblyName>DDJ200.CodexBridge</AssemblyName>
     <RootNamespace>DDJ200.CodexBridge</RootNamespace>
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
     <Product>DDJ-200 Codex Bridge</Product>
     <Description>Ponte comunitaria DDJ-200 para Codex Micro</Description>
     <Company>DDJ-200 Codex Bridge community project</Company>
     <ApplicationIcon>..\..\assets\windows\ddj200-codex-bridge.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup><Compile Include="..\Shared\ProfileMigration.cs" Link="ProfileMigration.cs" /></ItemGroup>
 </Project>

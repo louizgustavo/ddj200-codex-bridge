@@ -111,6 +111,18 @@ public static class MicroTests
         await stream.WriteAsync(Submit(nextSequence++, 1, 1, 64), token);
         using (var value = Decode(new[] { (await Return(stream, token)).Payload })) Check(value.RootElement.GetProperty("params").GetProperty("act").GetInt32() == 0, "notification release follows press without duplicate action");
         bool invalidCommand=false;
+        foreach(string slot in Surface12Map.TaskTargets)
+        {
+            await stream.WriteAsync(Submit(nextSequence++,1,1,64),token);
+            bool taskAccepted=false;
+            for(int attempt=0;attempt<100&&!taskAccepted;attempt++){taskAccepted=server.TrySendTaskKey(slot);if(!taskAccepted)await Task.Delay(5,token);}
+            Check(taskAccepted,"native task slot queued "+slot);
+            using(var value=Decode(new[]{(await Return(stream,token)).Payload}))
+                Check(value.RootElement.GetProperty("params").GetProperty("k").GetString()==slot&&value.RootElement.GetProperty("params").GetProperty("act").GetInt32()==1,"task down preserves source-independent native slot "+slot);
+            await stream.WriteAsync(Submit(nextSequence++,1,1,64),token);
+            using(var value=Decode(new[]{(await Return(stream,token)).Payload}))
+                Check(value.RootElement.GetProperty("params").GetProperty("k").GetString()==slot&&value.RootElement.GetProperty("params").GetProperty("act").GetInt32()==0,"task release preserves native slot "+slot);
+        }
         try{await server.SendCommandEdge("ACT11",1);}catch(ArgumentException){invalidCommand=true;}
         Check(invalidCommand,"combined microphone rejects inactive ACT11 wire key");
         await stream.WriteAsync(Submit(nextSequence++,1,1,64),token);

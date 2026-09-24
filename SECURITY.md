@@ -2,11 +2,11 @@
 
 ## Modelo local
 
-A versão 1.0 abre um servidor USB/IP exclusivamente em `127.0.0.1:3240`. Não há telemetria, conta própria, upload de logs nem API remota. O caminho do `config.toml` é lido localmente para validar somente a estrutura necessária ao Micro; a ponte não deve publicar nem copiar esse arquivo.
+A ponte abre um servidor USB/IP exclusivamente em `127.0.0.1:3240`. Não há telemetria, conta própria, upload de logs nem API remota. A execução normal lê `config.toml` localmente para validar a estrutura necessária ao Micro. O assistente de primeira execução pode acrescentar campos Micro ausentes, com backup local ao lado do arquivo original; nunca publique esses backups. Preferências existentes não são substituídas.
 
 ## Driver USB/IP
 
-USBip-win2 é um projeto independente e inclui componentes em modo kernel. A instalação, atualização ou remoção do driver pode afetar dispositivos USB. Este instalador não incorpora e não instala o driver. Obtenha-o da [origem oficial](https://github.com/vadimgrn/usbip-win2), valide a assinatura apresentada pelo Windows e revise as notas da versão antes de consentir.
+USBip-win2 é um projeto independente e inclui componentes em modo kernel. A instalação, atualização ou remoção do driver pode afetar dispositivos USB. O instalador 1.1 incorpora o pacote oficial 0.9.8.0 x64, verificado por SHA-256 e assinatura no build. Na máquina de destino, confere novamente o hash antes de elevar somente o instalador oficial. A interface explica a interrupção temporária de USB e a necessidade de reiniciar. Uma dependência existente funcional é preservada; uma instalação quebrada não é substituída automaticamente.
 
 Não desative antivírus, Secure Boot, integridade de memória nem exigência de assinatura para executar esta ponte. Não use builds de driver que exijam Test Signing em uma máquina de uso normal.
 
