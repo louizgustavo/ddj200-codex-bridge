@@ -95,8 +95,13 @@ public static class MidiLearn
         string full = Path.GetFullPath(path);
         Directory.CreateDirectory(Path.GetDirectoryName(full)!);
         string temp = full + ".tmp-" + Guid.NewGuid().ToString("N");
-        File.WriteAllText(temp, JsonSerializer.Serialize(value, Json));
-        File.Move(temp, full, true);
+        try
+        {
+            File.WriteAllText(temp, JsonSerializer.Serialize(value, Json));
+            if(File.Exists(full))SharedFile.ReplaceSnapshot(temp,full);
+            else File.Move(temp,full);
+        }
+        finally { if(File.Exists(temp))File.Delete(temp); }
     }
     public static int Accept(string path, string candidateId)
     {

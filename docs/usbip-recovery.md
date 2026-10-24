@@ -16,7 +16,7 @@ A publicação preserva o executável oficial sem modificações, licença e reg
 
 Baixe o executável, a licença e o registro de verificação na release acima. Confira o SHA-256 e a assinatura digital do executável antes de executar. O pacote atende aos requisitos documentados da ponte (Windows x64 e UDE USB/IP), mas o repositório não registra qual versão estava instalada na máquina anterior. Isso não constitui uma nova validação funcional da DDJ-200.
 
-A instalação do USBip continua separada do instalador da ponte e exige privilégios administrativos. O instalador oficial pode reiniciar dispositivos USB e pedir reinicialização do Windows. Siga a documentação oficial e não desative verificações de assinatura ou proteções do Windows.
+O candidato 1.1 da ponte incorpora esse mesmo instalador oficial e o executa, se ausente, em uma etapa separada com privilégios administrativos. O pacote oficial 0.9.8.0 declara `AlwaysRestart=yes`: o instalador completo impede reinício automático da dependência, copia a ponte e prepara a retomada no próximo login. Dispositivos USB podem reiniciar durante a instalação. Não desative verificações de assinatura ou proteções do Windows. A dependência preservada na release também continua disponível para recuperação manual.
 
 A release oficial 0.9.8.0 registra um problema conhecido em `vhci::stop_attach_attempts` quando uma localização é especificada. O backup é da versão publicada, sem patches.
 

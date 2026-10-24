@@ -15,7 +15,9 @@ public sealed record ProductProfile(int SchemaVersion, IReadOnlyList<ProductButt
 
     public static ProductProfile Load()
     {
-        var profile = JsonSerializer.Deserialize<ProductProfile>(File.ReadAllText(ProfilePath), MidiLearn.Json)
+        var node = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(ProfilePath))!.AsObject();
+        ProfileMigration.Upgrade(node);
+        var profile = JsonSerializer.Deserialize<ProductProfile>(node.ToJsonString(), MidiLearn.Json)
             ?? throw new InvalidDataException("Invalid controller product profile");
         if (profile.SchemaVersion != 1 || profile.Jog is null || profile.Buttons is null || profile.Analogs is null)
             throw new InvalidDataException("Unsupported controller product profile");
@@ -41,7 +43,7 @@ public static class ProductLedPolicy
         ["attention"] = new("blink", [250,250]),
         ["error"] = new("blink", [250,250,250,250,250,1000]),
         ["commandConfigured"] = new("solidOn", []),
-        ["commandHold"] = new("blink", [1000,1000]),
+        ["commandHold"] = new("blink", [500,500]),
         ["commandReleased"] = new("solidOn", [])
     };
     private static readonly string[] Required = ["selected","working","unread","idle","unassigned","attention","error","commandConfigured","commandHold","commandReleased"];

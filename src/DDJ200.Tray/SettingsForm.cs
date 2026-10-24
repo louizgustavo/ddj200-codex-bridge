@@ -5,10 +5,11 @@ namespace DDJ200.CodexBridge;
 
 internal sealed class SettingsForm : Form
 {
-    private static readonly string[] Targets = ["AG00","AG01","AG02","AG03","AG04","AG05","ACT06","ACT07","ACT08","ACT09","ACT10_ACT11","ACT12"];
+    private static readonly string[] Targets = ["AG00","AG01","AG02","AG03","AG04","AG05","ACT06","ACT07","ACT08","ACT09","ACT10_ACT11","ACT12","joystick.up","joystick.down"];
     private static readonly Dictionary<string,string> TargetNames = new()
     {
-        ["AG00"]="Tarefa recente 1",["AG01"]="Tarefa recente 2",["AG02"]="Tarefa recente 3",["AG03"]="Tarefa recente 4",["AG04"]="Tarefa recente 5",["AG05"]="Tarefa recente 6",
+        ["AG00"]="Slot Micro 1",["AG01"]="Slot Micro 2",["AG02"]="Slot Micro 3",["AG03"]="Slot Micro 4",["AG04"]="Slot Micro 5",["AG05"]="Slot Micro 6",
+        ["joystick.up"]="Seta para cima (Micro)",["joystick.down"]="Seta para baixo (Micro)",
         ["ACT06"]="Tecla Micro 1",["ACT07"]="Tecla Micro 2",["ACT08"]="Tecla Micro 3",["ACT09"]="Tecla Micro 4",["ACT10_ACT11"]="Microfone",["ACT12"]="Codex"
     };
     private static readonly Dictionary<string,string> StateNames = new()
@@ -18,6 +19,7 @@ internal sealed class SettingsForm : Form
     };
     private static readonly Dictionary<string,string> ControlNames = new()
     {
+        ["deck1.play"]="Deck esquerdo — PLAY",["deck1.cue"]="Deck esquerdo — CUE",
         ["deck1.pad2"]="Deck esquerdo — Pad 2",["deck1.pad3"]="Deck esquerdo — Pad 3",["deck1.pad5"]="Deck esquerdo — Pad 5",["deck1.pad6"]="Deck esquerdo — Pad 6",["deck1.pad7"]="Deck esquerdo — Pad 7",["deck1.pad8"]="Deck esquerdo — Pad 8",
         ["deck2.pad1"]="Deck direito — Pad 1",["deck2.pad2"]="Deck direito — Pad 2",["deck2.pad3"]="Deck direito — Pad 3",["deck2.pad4"]="Deck direito — Pad 4",["deck2.play"]="Deck direito — PLAY",["deck2.cue"]="Deck direito — CUE"
     };
@@ -40,9 +42,16 @@ internal sealed class SettingsForm : Form
         working=JsonNode.Parse(File.ReadAllText(currentPath))!.AsObject();
         if(working["ledPatterns"] is null)
             working["ledPatterns"]=JsonNode.Parse(File.ReadAllText(defaultsPath))!["ledPatterns"]!.DeepClone();
+        Ddj200.ProfileMigration.Upgrade(working);
         Text="Configurar DDJ-200 Codex Bridge"; Width=820; Height=620; StartPosition=FormStartPosition.CenterScreen; MinimizeBox=false;
         var tabs=new TabControl { Dock=DockStyle.Fill };
         tabs.TabPages.Add(ConnectionPage()); tabs.TabPages.Add(MappingPage()); tabs.TabPages.Add(LightsPage()); tabs.TabPages.Add(JogPage());
+        tabs.Selected+=(_,e)=>
+        {
+            if(e.TabPage?.Controls.Contains(lights)!=true)return;
+            mappings.EndEdit();
+            RefreshLightControls();
+        };
         var buttons=new FlowLayoutPanel { Dock=DockStyle.Bottom, Height=48, FlowDirection=FlowDirection.RightToLeft, Padding=new Padding(8) };
         var save=new Button { Text="Salvar", AutoSize=true }; save.Click+=SaveClick;
         var cancel=new Button { Text="Cancelar", AutoSize=true, DialogResult=DialogResult.Cancel };
@@ -77,7 +86,7 @@ internal sealed class SettingsForm : Form
                 learn.Enabled=false; learn.Text="Aguardando: pressione e solte...";
                 var found=await identifyControl(); if(found==null)return;
                 string targetId=Convert.ToString(choice.SelectedValue)!;
-                var pressed=mappings.Rows.Cast<DataGridViewRow>().SingleOrDefault(r=>(string?)r.Tag==found.Value.Control)??throw new InvalidDataException("Esse controle não pertence ao mapa seguro de 12 teclas.");
+                var pressed=mappings.Rows.Cast<DataGridViewRow>().SingleOrDefault(r=>(string?)r.Tag==found.Value.Control)??throw new InvalidDataException("Esse controle não pertence ao mapa seguro de 14 teclas.");
                 var destination=mappings.Rows.Cast<DataGridViewRow>().Single(r=>Convert.ToString(r.Cells["Target"].Value)==targetId);
                 string oldTarget=Convert.ToString(pressed.Cells["Target"].Value)!;
                 destination.Cells["Target"].Value=oldTarget; pressed.Cells["Target"].Value=targetId;
@@ -95,12 +104,13 @@ internal sealed class SettingsForm : Form
     {
         var page=new TabPage("Luzes");
         lights.Columns.Add(new DataGridViewTextBoxColumn { Name="State",HeaderText="Estado",ReadOnly=true,Width=210 });
+        lights.Columns.Add(new DataGridViewTextBoxColumn { Name="Controls",HeaderText="Controles (padrão compartilhado)",ReadOnly=true,Width=190 });
         lights.Columns.Add(new DataGridViewComboBoxColumn { Name="Mode",HeaderText="Padrão",Width=130,DataSource=new[]{"Aceso","Apagado","Piscar"} });
         lights.Columns.Add(new DataGridViewTextBoxColumn { Name="Timings",HeaderText="Tempos em ms: aceso, apagado, ...",AutoSizeMode=DataGridViewAutoSizeColumnMode.Fill });
         page.Controls.Add(lights);
         var tools=new FlowLayoutPanel{Dock=DockStyle.Top,Height=44,Padding=new Padding(8),WrapContents=false};
         var preview=new Button{Text="Ver exemplo",AutoSize=true};preview.Click+=(_,_)=>StartPreview();tools.Controls.Add(preview);tools.Controls.Add(lightPreview);tools.Controls.Add(new Label{AutoSize=true,Margin=new Padding(3,8,3,3),Text="Prévia somente na tela; não envia nada à DDJ."});page.Controls.Add(tools);
-        page.Controls.Add(new Label { Dock=DockStyle.Top,Height=48,Padding=new Padding(8),Text="Para Piscar, use pares de tempos entre 50 e 5000 ms. Ex.: 1000, 500. Atenção e erro continuam com prioridade." });
+        page.Controls.Add(new Label { Dock=DockStyle.Top,Height=48,Padding=new Padding(8),Text="Os padrões são compartilhados pelos controles indicados abaixo. Para Piscar, use pares de tempos entre 50 e 5000 ms. Ex.: 1000, 500. Atenção e erro continuam com prioridade." });
         return page;
     }
 
@@ -140,9 +150,24 @@ internal sealed class SettingsForm : Form
         {
             var pattern=pair.Value!.AsObject(); string mode=pattern["mode"]!.GetValue<string>() switch {"solidOn"=>"Aceso","solidOff"=>"Apagado",_=>"Piscar"};
             string times=string.Join(", ",pattern["durations"]!.AsArray().Select(x=>x!.GetValue<int>()));
-            lights.Rows.Add(StateNames[pair.Key],mode,times); lights.Rows[^1].Tag=pair.Key;
+            lights.Rows.Add(StateNames[pair.Key],"",mode,times); lights.Rows[^1].Tag=pair.Key;
         }
+        RefreshLightControls();
         leftJog.Value=(decimal)working["jog"]!["leftScale"]!.GetValue<double>(); rightJog.Value=(decimal)working["jog"]!["rightScale"]!.GetValue<double>();
+    }
+
+    private void RefreshLightControls()
+    {
+        string ControlsFor(bool tasks)=>string.Join(", ",mappings.Rows.Cast<DataGridViewRow>()
+            .Where(r=>(Convert.ToString(r.Cells["Target"].Value)??"").StartsWith("AG",StringComparison.Ordinal)==tasks)
+            .Select(r=>ControlNames.GetValueOrDefault((string)r.Tag!,(string)r.Tag!)));
+        string taskControls=ControlsFor(true),commandControls=ControlsFor(false);
+        foreach(DataGridViewRow row in lights.Rows)
+        {
+            string controls=((string)row.Tag!).StartsWith("command",StringComparison.Ordinal)?commandControls:taskControls;
+            row.Cells["Controls"].Value=controls;
+            row.Cells["Controls"].ToolTipText=controls;
+        }
     }
 
     private void SaveClick(object? sender,EventArgs e)
@@ -150,7 +175,7 @@ internal sealed class SettingsForm : Form
         try
         {
             var chosen=mappings.Rows.Cast<DataGridViewRow>().Select(r=>Convert.ToString(r.Cells["Target"].Value)??"").ToArray();
-            if(chosen.Length!=12||chosen.Distinct().Count()!=12||!chosen.ToHashSet().SetEquals(Targets)) throw new InvalidDataException("Cada função deve aparecer exatamente uma vez.");
+            if(chosen.Length!=14||chosen.Distinct().Count()!=14||!chosen.ToHashSet().SetEquals(Targets)) throw new InvalidDataException("Cada função deve aparecer exatamente uma vez.");
             var buttons=working["buttons"]!.AsArray(); for(int i=0;i<buttons.Count;i++) buttons[i]!["target"]=chosen[i];
             var led=working["ledPatterns"]!.AsObject();
             foreach(DataGridViewRow row in lights.Rows)

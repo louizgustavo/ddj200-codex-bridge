@@ -73,24 +73,23 @@ public static class AnalogSurfaceTests
         Check(burst.Tick(500).Count == 0, "right neutral is sent once");
         Check(Rad(burst.Input(Jog(1, 63), 600), "joystick.left", 0.5, 1), "right negative rotation enters left direction");
 
-        var tempo = new AnalogSurfaceLogic(new JogSensitivity(1, 1));
-        Check(!tempo.TempoCentered && Tempo(tempo, 12000, 0).All(x=>x.Method=="discard"), "tempo starts gated even if first sample is far from center");
-        Check(Tempo(tempo, 8192 + 129, 10).All(x=>x.Method=="discard") && !tempo.TempoCentered, "tempo must first enter exact initial center tolerance");
-        Check(Tempo(tempo, 8192 + 128, 20).Count == 0 && tempo.TempoCentered, "tempo center tolerance includes 128 boundary");
-        Check(Tempo(tempo, 8192 + 511, 30).Count == 0, "tempo deviation below entry threshold remains neutral");
-        Check(Rad(Tempo(tempo, 8192 + 512, 40), "joystick.down", 0.25, 1), "tempo positive entry at 512 selects down");
-        Check(Tempo(tempo, 14000, 50).Count == 0 && tempo.Tick(10000).Count == 0, "tempo excursion does not repeat while held or on timer");
-        Check(Tempo(tempo, 8192 + 257, 10010).Count == 0, "tempo hysteresis holds direction above exit threshold");
-        Check(Rad(Tempo(tempo, 8192 + 256, 10020), "joystick.neutral", 0, 0), "tempo exit threshold 256 sends one neutral");
-        Check(Tempo(tempo, 8192, 10030).Count == 0, "center repeats do not repeat neutral");
-        Check(Rad(Tempo(tempo, 8192 - 512, 10040), "joystick.up", 0.75, 1), "tempo negative excursion selects up");
-        Check(Tempo(tempo, 0, 10050).Count == 0, "up excursion likewise emits once");
-
-        var invalid = new AnalogSurfaceLogic(new JogSensitivity(1, 1));
-        Check(invalid.Input(new(0xB1, 32, 0), 0).Count == 0 && !invalid.TempoCentered, "orphan tempo LSB cannot calibrate center");
-        invalid.Input(new(0xB1, 0, 64), 0);
-        Check(invalid.Input(new(0xB1, 32, 0), 101).Count == 0 && !invalid.TempoCentered, "stale tempo pair cannot calibrate center");
-        Check(Tempo(invalid, 8192, 200, 0).Count == 0 && !invalid.TempoCentered, "left tempo does not calibrate or control right mapping");
+        var vertical = new AnalogSurfaceLogic(new JogSensitivity(1, 1));
+        foreach (int deck in new[] { 0, 1 })
+            foreach (int value in new[] { 0, 8192, 16383, 8192 })
+                Check(Tempo(vertical, value, value, deck).Count == 0, "tempo never emits navigation");
+        Check(Rad(vertical.DirectionButton("joystick.down", 1), "joystick.down", .25, 1), "PLAY target presses down");
+        Check(vertical.DirectionButton("joystick.down", 1).Count == 0, "duplicate direction down ignored");
+        Check(vertical.Input(Jog(1, 65), 0).All(x => x.Method == "discard"), "held vertical direction blocks horizontal jog");
+        Check(Rad(vertical.DirectionButton("joystick.up", 1), "joystick.neutral", 0, 0), "opposite held buttons cancel");
+        Check(Rad(vertical.DirectionButton("joystick.down", 0), "joystick.up", .75, 1), "release restores other held button");
+        Check(Rad(vertical.DirectionButton("joystick.up", 0), "joystick.neutral", 0, 0), "direction release neutralizes");
+        Check(vertical.DirectionButton("joystick.up", 0).Count == 0, "orphan release ignored");
+        vertical.Input(Jog(1, 65), 1000);
+        var takeover = vertical.DirectionButton("joystick.up", 1);
+        Check(takeover.Count == 2 && takeover[0].Distance == 0 && takeover[1].Angle == .75, "button neutralizes horizontal jog before up");
+        Check(vertical.Tick(2000).Count == 0, "old horizontal timeout cannot release held button");
+        Check(Rad(vertical.Stop(), "joystick.neutral", 0, 0), "stop neutralizes held direction");
+        Check(vertical.DirectionButton("joystick.down", 1).Count == 0, "stop blocks direction buttons");
 
         var stop = new AnalogSurfaceLogic(new JogSensitivity(1, 1));
         stop.Input(Note(0, 0x36, true), 0);
