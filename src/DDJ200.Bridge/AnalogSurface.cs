@@ -24,7 +24,7 @@ public static class AnalogSurfaceMap
         var found=ProductProfile.Load().Analogs;
         if(found.Count!=Expected.Count||Expected.Any(p=>!found.TryGetValue(p.Key,out var value)||p.Value!=value))throw new InvalidDataException("Analog contract differs from reviewed physical captures");
         if(Surface12Map.Load().Any(x=>Expected.Values.Contains(x.Signature)))throw new InvalidDataException("Analog/button physical conflict");
-        ValidateLayout(File.ReadAllText(MicroBinding.StatePath), allowNativeRemapping);
+        ValidateLayout(SharedFile.ReadConfiguration(MicroBinding.StatePath), allowNativeRemapping);
     }
     public static void ValidateLayout(string text, bool allowNativeRemapping=false)
     {

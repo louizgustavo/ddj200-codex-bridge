@@ -33,7 +33,7 @@ public static class Surface12Map
                 item.Signature != $"note:{(note.Status & 15)+1}:{note.Data1}") throw new InvalidDataException("Physical identity disagrees with verified decoder/LED inventory");
         }
     }
-    public static string ConfigurationFingerprint(bool nativeRemapping=false)=>ConfigurationFingerprint(File.ReadAllText(MicroBinding.StatePath),nativeRemapping);
+    public static string ConfigurationFingerprint(bool nativeRemapping=false)=>ConfigurationFingerprint(SharedFile.ReadConfiguration(MicroBinding.StatePath),nativeRemapping);
     public static string ConfigurationFingerprint(string configText,bool nativeRemapping=false)
     {
         var layout = JsonSerializer.SerializeToElement(MicroBinding.ParseLayoutToml(configText));
@@ -214,7 +214,7 @@ public static class Surface12Run
         if(observeAnalogs)AnalogSurfaceMap.Validate(allowNativeRemapping:!seconds.HasValue);
         var jogSensitivity=observeAnalogs?JogSensitivity.Read():null;
         var analog=observeAnalogs?new AnalogSurfaceLogic(jogSensitivity):null;
-        string configText=File.ReadAllText(MicroBinding.StatePath);
+        string configText=SharedFile.ReadConfiguration(MicroBinding.StatePath);
         var map=Surface12Map.Load();string config=Surface12Map.ConfigurationFingerprint(configText,nativeRemapping:!seconds.HasValue);
         string taskSource=Surface12Map.ReadTaskSource(configText);
         string mapHash=HashInputs(observeAnalogs);
@@ -266,10 +266,10 @@ public static class Surface12Run
             }
         }
         var selectedPattern=ProductProfile.Load().EffectiveLedPatterns["selected"];
-        void Status(string state,string? detail=null)=>MidiLearn.Save(folder+"/status.json",new{state,detail,pid=Environment.ProcessId,time=DateTimeOffset.UtcNow,startedAt,expiresAt,mode=seconds.HasValue?"test":"continuous",transport=transport=="usb"?"USB":"Bluetooth",connectionState=state=="active"?"ready":state=="waiting_for_micro"?"connected":state,taskSelection=allowTaskSelection,taskSource,taskSlots=Surface12Map.TaskTargets,commandExecution=commands.Count>0,enabledCommands=commands,analogObservation=observeAnalogs,analogExecution=executeAnalogs,jogSensitivity,leftJogIntervalMs=AnalogSurfaceLogic.LeftIntervalMs,selectedLedMode=selectedPattern.Mode,selectedLedOnMs=selectedPattern.Mode=="blink"?selectedPattern.Durations[0]:(int?)null,selectedLedOffMs=selectedPattern.Mode=="blink"?selectedPattern.Durations[1]:(int?)null,slots=logic.Tasks});
+        void Status(string state,string? detail=null)=>MidiLearn.Save(folder+"/status.json",new{state,detail,pid=Environment.ProcessId,time=DateTimeOffset.UtcNow,startedAt,expiresAt,mode=seconds.HasValue?"test":"continuous",transport=transport=="usb"?"USB":"Bluetooth",connectionState=state=="active"?"ready":state=="waiting_for_micro"?"connected":state,taskSelection=allowTaskSelection,taskSource,taskSlots=Surface12Map.TaskTargets,commandExecution=commands.Count>0,enabledCommands=commands,analogObservation=observeAnalogs,analogExecution=executeAnalogs,jogSensitivity,leftJogIntervalMs=AnalogSurfaceLogic.LeftIntervalMs,selectedLedMode=selectedPattern.Mode,selectedLedOnMs=selectedPattern.Mode=="blink"?selectedPattern.Durations[0]:(int?)null,selectedLedOffMs=selectedPattern.Mode=="blink"?selectedPattern.Durations[1]:(int?)null,slots=logic.Tasks,fileContentionRetries=SharedFile.ContentionRetries});
         void CheckTaskSource(string? currentConfig=null)
         {
-            string next=Surface12Map.ReadTaskSource(currentConfig??File.ReadAllText(MicroBinding.StatePath));
+            string next=Surface12Map.ReadTaskSource(currentConfig??SharedFile.ReadConfiguration(MicroBinding.StatePath));
             if(next==taskSource)return;
             string previous=taskSource;taskSource=next;
             // A pad pressed in the previous source must not select on release in the new one.
@@ -279,7 +279,7 @@ public static class Surface12Run
         }
         void CheckConfiguration()
         {
-            string currentConfig=File.ReadAllText(MicroBinding.StatePath);
+            string currentConfig=SharedFile.ReadConfiguration(MicroBinding.StatePath);
             if(Surface12Map.ConfigurationFingerprint(currentConfig,nativeRemapping:!seconds.HasValue)!=config||HashInputs(observeAnalogs)!=mapHash)
                 throw new IOException("Mapping/configuration changed");
             CheckTaskSource(currentConfig);
@@ -324,7 +324,7 @@ public static class Surface12Run
                 while(queue.Reader.TryRead(out var item))
                 {
                     logic.Receive(item.Method,item.Value,item.Time);
-                    if(item.Method=="v.oai.thstatus") {Log(new{kind="real_task_feedback",ms=now,taskSource,slots=logic.Tasks});if(active)Status("active");}
+                    if(item.Method=="v.oai.thstatus") {Log(new{kind="real_task_feedback",ms=now,taskSource,slots=logic.Tasks,fileContentionRetries=SharedFile.ContentionRetries});if(active)Status("active");}
                 }
                 now=clock.ElapsedMilliseconds; // Feedback may arrive after the loop's initial clock read.
                 bool ready=logic.Ready(now,connected);
@@ -372,7 +372,13 @@ public static class Surface12Run
             }
         }
         catch(OperationCanceledException)when(stop.IsCancellationRequested){}
-        catch(Exception e){failure=e.Message;Status("error",e.Message);Log(new{kind="error",detail=e.Message});throw;}
+        catch(Exception e)
+        {
+            failure=e.Message;
+            Log(new{kind="error",detail=e.Message,exception=e.GetType().Name,hresult=e.HResult,stack=e.StackTrace});
+            try{Status("error",e.Message);}catch(Exception statusError){Console.Error.WriteLine("Error status unavailable: "+statusError.Message);}
+            throw;
+        }
         finally
         {
             analog?.Stop();
@@ -394,7 +400,9 @@ public static class Surface12Run
                 if(!delivered)failure??="Held command release unconfirmed after transport loss";
             }
             logic.Stop();try{Leds(false);}catch(Exception e){failure??="LED cleanup unconfirmed: "+e.Message;Console.Error.WriteLine("LED cleanup unconfirmed: "+e.Message);}
-            Status(failure==null?"stopped":"error",failure);Console.CancelKeyPress-=handler;Console.WriteLine("STOPPED: cleanup attempted; detach only recorded port");
+            try{Status(failure==null?"stopped":"error",failure);}
+            catch(Exception statusError){failure??="Final status unavailable: "+statusError.Message;Console.Error.WriteLine("Final status unavailable: "+statusError.Message);}
+            Console.CancelKeyPress-=handler;Console.WriteLine("STOPPED: cleanup attempted; detach only recorded port");
         }
         return failure==null?0:1;
         }

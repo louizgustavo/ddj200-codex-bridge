@@ -12,6 +12,7 @@ static async Task<int> MainAsync(string[] args)
         if(command=="self-test")
         {
             int result=0;
+            result|=SharedFileTests.Run();
             result|=Surface12Tests.Run();
             result|=AnalogSurfaceTests.Run();
             result|=BoundedEventLogTests.Run();
@@ -19,6 +20,7 @@ static async Task<int> MainAsync(string[] args)
             return result;
         }
         if(command=="surface12-self-test")return Surface12Tests.Run();
+        if(command=="shared-file-self-test")return SharedFileTests.Run();
         if(command=="analog-surface-self-test")return AnalogSurfaceTests.Run();
         if(command=="bounded-log-self-test")return BoundedEventLogTests.Run();
         if(command=="micro-self-test")return await MicroTests.Run();
@@ -27,13 +29,13 @@ static async Task<int> MainAsync(string[] args)
         {
             if(args.Contains("--dry-run"))
             {
-                string original=File.Exists(MicroBinding.StatePath)?File.ReadAllText(MicroBinding.StatePath):"";
+                string original=File.Exists(MicroBinding.StatePath)?SharedFile.ReadConfiguration(MicroBinding.StatePath):"";
                 Console.WriteLine(MicroSetup.PrepareText(original)==original?"CONFIG_PRESERVED":"CONFIG_WOULD_BE_PREPARED");return 0;
             }
             bool changed=MicroSetup.PrepareFile(MicroBinding.StatePath);
             Console.WriteLine(changed?"CONFIG_PREPARED":"CONFIG_PRESERVED");return 0;
         }
-        if(command=="check-config") { MicroSetup.Validate(File.ReadAllText(MicroBinding.StatePath)); return 0; }
+        if(command=="check-config") { MicroSetup.Validate(SharedFile.ReadConfiguration(MicroBinding.StatePath)); return 0; }
         if(command=="discover-micro")return await MicroSetup.Discover(int.TryParse(Option("--timeout-seconds"),out int discoverySeconds)?discoverySeconds:120);
         if(command=="profile-check")
         {
@@ -65,7 +67,7 @@ static async Task<int> MainAsync(string[] args)
         }
         if(command=="help")
         {
-            Console.WriteLine("DDJ-200 Codex Bridge 1.1.0\nsurface12-run --continuous --arm --allow-task-selection --enable-commands ACT06,ACT07,ACT08,ACT09,ACT10_ACT11,ACT12 --observe-analogs --execute-analogs\nprofile-check | ports | identify-control --timeout-seconds 20 | self-test");
+            Console.WriteLine("DDJ-200 Codex Bridge 1.1.1\nsurface12-run --continuous --arm --allow-task-selection --enable-commands ACT06,ACT07,ACT08,ACT09,ACT10_ACT11,ACT12 --observe-analogs --execute-analogs\nprofile-check | ports | identify-control --timeout-seconds 20 | self-test");
             return 0;
         }
         throw new ArgumentException("Unknown command; use help");

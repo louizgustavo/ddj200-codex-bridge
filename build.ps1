@@ -24,7 +24,7 @@ if($LASTEXITCODE-ne0){exit $LASTEXITCODE}
 if($Action-eq'Build'){return}
 
 $exe=Join-Path $root 'src\DDJ200.Bridge\bin\Release\net8.0\ddj200.exe'
-foreach($suite in @('surface12-self-test','analog-surface-self-test','bounded-log-self-test','micro-self-test','setup-self-test')){
+foreach($suite in @('surface12-self-test','analog-surface-self-test','bounded-log-self-test','micro-self-test','setup-self-test','shared-file-self-test')){
   & $exe $suite
   if($LASTEXITCODE-ne0){exit $LASTEXITCODE}
 }
@@ -32,7 +32,7 @@ if($Action-ne'Publish'){return}
 
 $stage=Join-Path $root 'stage\app'
 $publish=Join-Path $root 'publish'
-$artifacts=Join-Path $root 'artifacts\release'
+$artifacts=Join-Path $root 'artifacts\release\1.1.1'
 foreach($target in @($stage,$publish,$artifacts)){
   $full=[IO.Path]::GetFullPath($target)
   if(-not $full.StartsWith($root+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw "Unsafe build path: $full"}
@@ -65,7 +65,7 @@ if((Get-AuthenticodeSignature -LiteralPath $usbipPackage).Status-ne'Valid'){thro
 $manifest=Get-ChildItem -LiteralPath $stage -Recurse -File|Sort-Object FullName|ForEach-Object{
   [pscustomobject]@{path=$_.FullName.Substring($stage.Length+1).Replace('\','/');bytes=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}
 }
-[pscustomobject]@{product='DDJ-200 Codex Bridge';version='1.1.0';architecture='win-x64';signed=$false;usbipVersion='0.9.8.0';usbipSha256='81f426741f7ee2ed991febe24a22daca8400b6ae2f171054e3fb404897e15d39';files=$manifest}|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $stage 'manifest.json') -Encoding utf8
+[pscustomobject]@{product='DDJ-200 Codex Bridge';version='1.1.1';architecture='win-x64';signed=$false;usbipVersion='0.9.8.0';usbipSha256='81f426741f7ee2ed991febe24a22daca8400b6ae2f171054e3fb404897e15d39';files=$manifest}|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $stage 'manifest.json') -Encoding utf8
 
 $isccCandidates=@($env:ISCC_EXE,(Join-Path $root '.tools\inno\ISCC.exe'),(Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'))|Where-Object{$_ -and (Test-Path -LiteralPath $_)}
 $iscc=$isccCandidates|Select-Object -First 1
@@ -74,10 +74,10 @@ $isccHash=(Get-FileHash -LiteralPath $iscc -Algorithm SHA256).Hash.ToLowerInvari
 if($isccHash-ne'0a8757031b33777e4c9cbffee40f11a5062b36d25cbe144c1db73b6102b80ad7'){throw "The verified Inno Setup 6.7.3 compiler is required; ISCC.exe hash was $isccHash"}
 & $iscc (Join-Path $root 'installer\DDJ200-Codex-Bridge.iss')
 if($LASTEXITCODE-ne0){exit $LASTEXITCODE}
-$setup=Join-Path $artifacts 'DDJ200-Codex-Bridge-1.1.0-Setup.exe'
+$setup=Join-Path $artifacts 'DDJ200-Codex-Bridge-1.1.1-Setup.exe'
 if(-not(Test-Path -LiteralPath $setup)){throw 'Expected installer was not generated'}
 $setupHash=(Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
-"$setupHash  DDJ200-Codex-Bridge-1.1.0-Setup.exe"|Set-Content -LiteralPath (Join-Path $artifacts 'SHA256SUMS.txt') -Encoding ascii
+"$setupHash  DDJ200-Codex-Bridge-1.1.1-Setup.exe"|Set-Content -LiteralPath (Join-Path $artifacts 'SHA256SUMS.txt') -Encoding ascii
 $signature=Get-AuthenticodeSignature -LiteralPath $setup
 [pscustomobject]@{file=(Split-Path -Leaf $setup);status=$signature.Status.ToString();signatureType=$signature.SignatureType.ToString();signed=($signature.Status-eq'Valid')}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $artifacts 'SIGNATURE-STATUS.json') -Encoding utf8
 [pscustomobject]@{installer=$setup;sha256=$setupHash;signed=($signature.Status-eq'Valid');stageFiles=$manifest.Count}

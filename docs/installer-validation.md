@@ -1,4 +1,4 @@
-# Instalador 1.1 — validação da pré-release
+# Instalador 1.1.1 — validação da pré-release
 
 ## Implementado
 
@@ -12,7 +12,8 @@
 ## Evidência obtida nesta máquina
 
 - Build .NET 8.0.424 de ambos os projetos, sem avisos/erros.
-- 316 verificações anteriores de superfície, jogs, logs e Micro, mais 21 verificações novas de configuração inicial (337 no total). Incluem arquivos temporários, backup byte a byte, idempotência, fonte pinned e remapeamento preservados, recusa de layout incompatível e TOML inválido. Testes de transporte existentes usam somente loopback sintético.
+- 352 verificações únicas: 316 de superfície, jogs, logs e Micro, 21 de configuração inicial e 15 de concorrência de arquivos. Incluem backups, idempotência, preservação de pinned/remapeamentos, recusa de configuração incompatível, snapshots completos e limites de repetição de operações com arquivos. Testes de transporte usam somente loopback sintético.
+- A tarefa de correção reproduziu duas causas de desconexão, validou 1.000 ciclos sobrepostos e aplicou o runtime USB com backup. Em 23/10/2026, o usuário confirmou que a ponte não caiu mais. Isso valida o uso observado, sem equivaler a uma instalação completa em Windows limpo.
 - `setup-config --dry-run` na configuração real retornou `CONFIG_PRESERVED`; hash antes/depois igual. Não houve escrita no arquivo real.
 - Interface do assistente renderizada fora da tela com a execução automática desativada e inspecionada visualmente; textos e botões legíveis. Nenhuma preparação foi executada nesse teste.
 - USBip existente respondeu à consulta somente leitura `port`; o Windows informou controlador UDE com código de problema 0. Não foi efetuado attach/detach de teste.

@@ -1,5 +1,5 @@
 #define MyAppName "DDJ-200 Codex Bridge"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.1.1"
 #define MyAppPublisher "DDJ-200 Codex Bridge community project"
 #define MyAppExeName "DDJ200.CodexBridge.exe"
 
@@ -9,7 +9,7 @@ AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-VersionInfoVersion=1.1.0.0
+VersionInfoVersion=1.1.1.0
 VersionInfoProductName={#MyAppName}
 VersionInfoDescription=Instalador comunitário da ponte DDJ-200 para Codex Micro
 VersionInfoCompany={#MyAppPublisher}
@@ -19,8 +19,8 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64os
 ArchitecturesInstallIn64BitMode=x64os
-OutputDir=..\artifacts\release
-OutputBaseFilename=DDJ200-Codex-Bridge-1.1.0-Setup
+OutputDir=..\artifacts\release\1.1.1
+OutputBaseFilename=DDJ200-Codex-Bridge-1.1.1-Setup
 SetupIconFile=..\assets\windows\ddj200-codex-bridge.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2/max

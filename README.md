@@ -6,7 +6,9 @@ Ponte comunitária para usar controles e LEDs de uma Pioneer DJ / AlphaTheta DDJ
 
 **English summary:** Community-built Windows bridge that translates Pioneer DJ DDJ-200 MIDI controls into the native Codex Micro device protocol and mirrors supported lighting feedback. USB and the integrated native Bluetooth path were validated on the original development machine; exhaustive per-control Bluetooth coverage is not claimed.
 
-## Estado da versão 1.1 (pré-release)
+## Estado da versão 1.1.1 (pré-release)
+
+- Corrige quedas causadas por conflitos de leitura/gravação de status e configuração no Windows. Publicação atômica e tentativas limitadas preservam as validações de configuração e a interrupção por perda real de transporte. Estabilidade USB confirmada pelo usuário após a correção; instalação completa em Windows limpo ainda pendente.
 
 - USB físico validado em Windows com uma DDJ-200 real.
 - Seis pads esquerdos seguem os seis slots nativos do Micro, usando **Chats mais recentes** ou **Chats fixados**, conforme a fonte escolhida no Codex. Trocar entre essas fontes mantém a ponte conectada; posições vazias continuam sem seleção.
@@ -44,7 +46,7 @@ Há também uma [cópia preservada do instalador oficial USBip, com licença, SH
 
 ## Instalação
 
-1. Baixe `DDJ200-Codex-Bridge-1.1.0-Setup.exe` na [pré-release 1.1.0](https://github.com/louizgustavo/ddj200-codex-bridge/releases/tag/v1.1.0) e confira o arquivo `SHA256SUMS.txt` anexado. O build local fica em `artifacts/release`.
+1. Baixe `DDJ200-Codex-Bridge-1.1.1-Setup.exe` na [pré-release 1.1.1](https://github.com/louizgustavo/ddj200-codex-bridge/releases/tag/v1.1.1) e confira o arquivo `SHA256SUMS.txt` anexado. O build local fica em `artifacts/release/1.1.1`.
 2. Execute normalmente, pela conta que usa o Codex. A ponte é instalada por usuário; somente a instalação do USBip pede administrador.
 3. Se USBip foi instalado, reinicie quando for conveniente. A preparação do Micro será retomada no próximo login. **Iniciar com o Windows** continua opcional e desmarcado; a retomada usa uma entrada separada, de execução única.
 4. O assistente verifica e abre o Codex, acrescenta somente campos ausentes, com backup do arquivo existente, e apresenta o Micro virtual sem enviar ações. Fontes recentes/fixados e remapeamentos existentes são preservados. Se o Codex já aberto não recarregar a configuração, feche e reabra o aplicativo e use **Tentar novamente**.
@@ -73,6 +75,6 @@ Detalhes adicionais: [arquitetura e limites](docs/architecture.md), [segurança 
 
 ## Compilar
 
-Requer o SDK .NET 8.0.424 para Windows e o compilador oficial Inno Setup 6.7.3 (`ISCC.exe`) com SHA-256 verificado pelo script. `./build.ps1 -Action Test` compila e executa os testes isolados, incluindo primeira configuração. Antes de publicar, execute `./installer/prepare-dependencies.ps1` (ou forneça `-UsbIpInstaller` com uma cópia local); ele verifica e guarda o pacote oficial em `.deps`, sem instalá-lo. `./build.ps1 -Action Publish` publica binários self-contained `win-x64`, manifesto e hashes em `artifacts/release`. O script preserva `artifacts/sdk` e diagnósticos. `ISCC_EXE` pode apontar para o compilador; `.tools/inno/ISCC.exe` também é reconhecido. A árvore local de diagnóstico nunca deve ser publicada em bloco.
+Requer o SDK .NET 8.0.424 para Windows e o compilador oficial Inno Setup 6.7.3 (`ISCC.exe`) com SHA-256 verificado pelo script. `./build.ps1 -Action Test` compila e executa os testes isolados, incluindo primeira configuração. Antes de publicar, execute `./installer/prepare-dependencies.ps1` (ou forneça `-UsbIpInstaller` com uma cópia local); ele verifica e guarda o pacote oficial em `.deps`, sem instalá-lo. `./build.ps1 -Action Publish` publica binários self-contained `win-x64`, manifesto e hashes em `artifacts/release/1.1.1`. O script preserva `artifacts/sdk` e diagnósticos. `ISCC_EXE` pode apontar para o compilador; `.tools/inno/ISCC.exe` também é reconhecido. A árvore local de diagnóstico nunca deve ser publicada em bloco.
 
 Este repositório não inclui uma licença de uso das fontes. A publicação do código não concede, por si só, permissão para copiar, modificar ou redistribuir além do permitido por lei. Dependências de terceiros mantêm suas próprias licenças.

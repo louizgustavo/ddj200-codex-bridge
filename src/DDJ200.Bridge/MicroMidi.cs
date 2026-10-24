@@ -10,7 +10,7 @@ public sealed record MicroBinding(string Slot, string Fingerprint)
 {
     public static bool IsSlot(string slot) => slot is "ACT06" or "ACT07" or "ACT08" or "ACT09" or "ACT10" or "ACT11" or "ACT12";
     public static string StatePath => Environment.GetEnvironmentVariable("DDJ_CODEX_CONFIG") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex", "config.toml");
-    public static MicroBinding Read(string slot) => ParseToml(File.ReadAllText(StatePath), slot);
+    public static MicroBinding Read(string slot) => ParseToml(SharedFile.ReadConfiguration(StatePath), slot);
     // Deliberately accepts only the scalar/table form emitted by the installed app.
     // Unknown TOML syntax in this layout is refused rather than guessed.
     public static MicroBinding ParseToml(string toml, string slot)

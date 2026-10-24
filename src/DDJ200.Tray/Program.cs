@@ -421,7 +421,7 @@ internal sealed class BridgeTrayContext : ApplicationContext
         try
         {
             if (!File.Exists(StatusPath)) return (false, null, null, null);
-            using var document = JsonDocument.Parse(File.ReadAllText(StatusPath));
+            using var document = JsonDocument.Parse(Ddj200.SharedFile.ReadSnapshot(StatusPath));
             var root = document.RootElement;
             int pid = root.GetProperty("pid").GetInt32();
             string? state = root.TryGetProperty("state", out var s) ? s.GetString() : null;
